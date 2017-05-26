@@ -279,7 +279,7 @@ const generateCryptoTokenManifest = () => {
         'usbDevices': [
           {
             'vendorId': 4176,
-            'productId': 529
+            'productId': 288
           }
         ]
       }
