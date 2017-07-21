@@ -264,7 +264,7 @@ const generateCryptoTokenManifest = () => {
     'name': 'CryptoTokenExtension',
     'description': 'CryptoToken Component Extension',
     'version': '0.9.46',
-    'key': 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAv6gfMMQ84MTaFeFsY835/xcfGvvF88m+lJ+cOEVmC4oNyERtmueS1ra8YIWbX86fxUPaz7wB5Lcu9no/yf0sdxY7b7kB9SD2ZbB7uPdjemW+P/7eQ7JG/fyGkscAPrxkBfx71bbM63wemCs1di3KFYYV+mkLG3YshfsfncHqXCfn7TXtItOwJfNkBeSEuq/gGp56nv53OhuzoAgBoq2gBWLZtKvqbxZenqu5OkvtFJRxfZ6e5toX8P84rBebALiJHpwQ6zmlEoTMwl2ymRDWRjMhRtI+n7fXAOSowWhjx3ucL1ln0j1jWUAr9KeFnQpDu4CBWNXpeFdo0K5FB7bJIwIDAQAB',
+    'key': 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAq7zRobvA+AVlvNqkHSSVhh1sEWsHSqz4oR/XptkDe/Cz3+gW9ZGumZ20NCHjaac8j1iiesdigp8B1LJsd/2WWv2Dbnto4f8GrQ5MVphKyQ9WJHwejEHN2K4vzrTcwaXqv5BSTXwxlxS/mXCmXskTfryKTLuYrcHEWK8fCHb+0gvr8b/kvsi75A1aMmb6nUnFJvETmCkOCPNX5CHTdy634Ts/x0fLhRuPlahk63rdf7agxQv5viVjQFk+tbgv6aa9kdSd11Js/RZ9yZjrFgHOBWgP4jTBqud4+HUglrzu8qynFipyNRLCZsaxhm+NItTyNgesxLdxZcwOz56KD1Q4IQIDAQAB',
     'manifest_version': 2,
     'permissions': [
       'hid',
