@@ -149,6 +149,18 @@ const windowActions = {
   },
 
   /**
+   * Dispatches a message to the store to indicate that the webview did-attach event is called
+   *
+   * @param {Number} tabId - The id of the web-contents being attached
+   */
+  onWebviewDidAttach: function (tabId) {
+    dispatch({
+      actionType: windowConstants.WINDOW_WEBVIEW_DID_ATTACH,
+      tabId
+    })
+  },
+
+  /**
    * Dispatches a message to the store to indicate that the webview entered full screen mode.
    *
    * @param {Object} tabId - Tab id of the frame to put in full screen

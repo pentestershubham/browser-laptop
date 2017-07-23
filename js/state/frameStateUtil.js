@@ -319,7 +319,7 @@ const frameOptsFromFrame = (frame) => {
  * Adds a frame specified by frameOpts and newKey and sets the activeFrameKey
  * @return Immutable top level application state ready to merge back in
  */
-function addFrame (state, frameOpts, newKey, partitionNumber, openInForeground, insertionIndex) {
+function addFrame (state, frameOpts, newKey, partitionNumber, openInForeground, insertionIndex, active) {
   const frames = state.get('frames')
 
   const location = frameOpts.location // page url
@@ -350,6 +350,9 @@ function addFrame (state, frameOpts, newKey, partitionNumber, openInForeground, 
     loading: frameOpts.rendererInitiated,
     startLoadTime: null,
     endLoadTime: null,
+    attachIndex: insertionIndex,
+    attachOpenedInForeground: openInForeground,
+    attachActive: active,
     lastAccessedTime: openInForeground ? new Date().getTime() : null,
     isPrivate: false,
     partitionNumber,
@@ -521,20 +524,42 @@ const deleteFrameInternalIndex = (state, frame) => {
   return deleteTabInternalIndex(state, frame.get('tabId'))
 }
 
-const updateFramesInternalIndex = (state, fromIndex) => {
+const updateFramesInternalIndex = (state, fromIndex, notifyBrowserProcess = true) => {
   let framesInternal = state.get('framesInternal') || Immutable.Map()
-  state.get('frames').slice(fromIndex).forEach((frame, idx) => {
+  state.get('frames').slice(fromIndex).reduceRight((result, frame, idx) => {
+    const tabId = frame.get('tabId')
+    const frameKey = frame.get('key')
     const realIndex = idx + fromIndex
-    if (frame.get('key')) {
-      framesInternal = framesInternal.setIn(['index', frame.get('key').toString()], realIndex)
+    if (frameKey) {
+      framesInternal = framesInternal.setIn(['index', frameKey.toString()], realIndex)
     }
-    if (frame.get('tabId') !== -1) {
-      framesInternal = framesInternal.setIn(['tabIndex', frame.get('tabId').toString()], realIndex)
+    if (tabId !== -1) {
+      framesInternal = framesInternal.setIn(['tabIndex', tabId.toString()], realIndex)
     }
+    // The browser process might not have the correct window Id for the tab yet. This happens
+    // when a new frame is being created via tear off, so in that case the tabIndexChanged
+    // app action is called when the new frame is attached.
+    if (notifyBrowserProcess) {
+      appActions.tabIndexChanged(tabId, realIndex)
+    }
+  }, 0)
+  return state.set('framesInternal', framesInternal)
+}
 
-    appActions.tabIndexChanged(frame.get('tabId'), realIndex)
-  })
-
+const moveFrame = (state, tabId, index) => {
+  let framesInternal = state.get('framesInternal') || Immutable.Map()
+  const frame = getFrameByTabId(state, tabId)
+  const frameKey = frame.get('key')
+  if (frameKey) {
+    framesInternal = framesInternal.setIn(['index', frameKey.toString()], index)
+  }
+  if (tabId !== -1) {
+    framesInternal = framesInternal.setIn(['tabIndex', tabId.toString()], index)
+  }
+  // The browser process might not have the correct window Id for the tab yet. This happens
+  // when a new frame is being created via tear off, so in that case the tabIndexChanged
+  // app action is called when the new frame is attached.
+  appActions.tabIndexChanged(tabId, index)
   return state.set('framesInternal', framesInternal)
 }
 
@@ -712,6 +737,7 @@ module.exports = {
   deleteTabInternalIndex,
   deleteFrameInternalIndex,
   updateFramesInternalIndex,
+  moveFrame,
   query,
   find,
   isAncestorFrameKey,

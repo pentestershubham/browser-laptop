@@ -107,16 +107,25 @@ const updateTabsDisplayIndex = (state, oldTabValue, newTabValue) => {
   const oldWindowId = validateId('windowId', oldTabValue.get('windowId'))
   const oldIndex = validateIndex(oldTabValue.get('index'))
   if (oldIndex !== -1 && oldTabId !== tabState.TAB_ID_NONE && oldWindowId !== windowState.WINDOW_ID_NONE) {
-    state = state.deleteIn(['tabsInternal', 'displayIndex', oldWindowId.toString(), oldIndex.toString()])
+    console.log('displayIndex-1 updateTabsDisplayIndex del-before', oldWindowId, state.getIn(['tabsInternal', 'displayIndex', oldWindowId.toString()]))
+    // We could be in the middle of shifting tabs over, so only delete if the tabId matches.
+    const tabIdAtSpotToDelete = state.getIn(['tabsInternal', 'displayIndex', oldWindowId.toString(), oldIndex.toString()])
+    if (tabIdAtSpotToDelete === oldTabId) {
+      state = state.deleteIn(['tabsInternal', 'displayIndex', oldWindowId.toString(), oldIndex.toString()])
+      console.log('Yes match so delete! displayIndex-1 updateTabsDisplayIndex del-after', oldWindowId, state.getIn(['tabsInternal', 'displayIndex', oldWindowId.toString()]))
+    } else {
+      console.log('NO match so NO delete! displayIndex-1 updateTabsDisplayIndex del-after', oldWindowId, state.getIn(['tabsInternal', 'displayIndex', oldWindowId.toString()]))
+    }
   }
 
   const tabId = validateId('tabId', newTabValue.get('tabId'))
   const windowId = validateId('windowId', newTabValue.get('windowId'))
   const index = validateIndex(newTabValue.get('index'))
   if (index !== -1 && tabId !== tabState.TAB_ID_NONE && windowId !== windowState.WINDOW_ID_NONE) {
-    return state.setIn(['tabsInternal', 'displayIndex', windowId.toString(), index.toString()], tabId)
+    console.log('displayIndex-2 updateTabsDisplayIndex set-before', windowId, state.getIn(['tabsInternal', 'displayIndex', windowId.toString()]))
+    state = state.setIn(['tabsInternal', 'displayIndex', windowId.toString(), index.toString()], tabId)
+    console.log('displayIndex-2 updateTabsDisplayIndex set-after', windowId, state.getIn(['tabsInternal', 'displayIndex', windowId.toString()]))
   }
-
   return state
 }
 
@@ -138,7 +147,9 @@ const deleteTabsInternalIndex = (state, tabValue) => {
   const windowId = validateId('windowId', tabValue.get('windowId'))
   const displayIndex = validateIndex(tabValue.get('index'))
   if (displayIndex !== -1 && windowId !== windowState.WINDOW_ID_NONE) {
+    console.log('displayIndex-3 deleteTabsInternalIndex set-before', windowId, state.getIn(['tabsInternal', 'displayIndex', windowId.toString()]))
     state = state.deleteIn(['tabsInternal', 'displayIndex', windowId.toString(), displayIndex.toString()])
+    console.log('displayIndex-3 deleteTabsInternalIndex set-after', windowId, state.getIn(['tabsInternal', 'displayIndex', windowId.toString()]))
   }
   if (windowId !== windowState.WINDOW_ID_NONE) {
     let activeList = state.getIn(['tabsInternal', 'lastActive', windowId.toString()], Immutable.OrderedSet())
@@ -304,6 +315,7 @@ const tabState = {
   },
 
   getNextTabIdByIndex: (state, windowId, index, includePinned = false) => {
+    console.log('getNextTabIdByIndex:: windowId:', windowId, state.getIn(['tabsInternal', 'displayIndex', windowId.toString()]))
     index = validateIndex(index)
     windowId = validateId('windowId', windowId)
     state = validateState(state)
@@ -314,6 +326,7 @@ const tabState = {
     // first look for any tabs after the index
     do {
       nextTab = tabState.getTabByIndex(state, windowId, nextIndex++)
+      console.log('nextTab', nextTab, 'nextIndex', nextIndex-1)
       if (nextTab) {
         if (!includePinned && nextTab.get('pinned')) {
           nextTab = null
@@ -333,6 +346,7 @@ const tabState = {
     let previousIndex = index - 1
     while (previousIndex >= 0 && !done) {
       nextTab = tabState.getTabByIndex(state, windowId, previousIndex--)
+      console.log('prev nextTab', nextTab, 'nextIndex', previousIndex+1)
       if (nextTab) {
         if (!includePinned && nextTab.get('pinned')) {
           nextTab = null
@@ -344,6 +358,7 @@ const tabState = {
       }
     }
 
+    console.log('0nextTab', nextTab)
     return nextTab ? nextTab.get('tabId') : tabState.TAB_ID_NONE
   },
 
@@ -416,7 +431,11 @@ const tabState = {
       tabValue = currentTabValue.mergeDeep(tabValue)
     }
 
-    state = updateTabsDisplayIndex(state, currentTabValue, tabValue)
+    console.log('UPDATE tab value:', currentTabValue.get('tabId'), tabValue.get('tabId'),
+      currentTabValue.get('index'), '->', tabValue.get('index'))
+    if (currentTabValue.get('index') !== tabValue.get('index')) {
+      state = updateTabsDisplayIndex(state, currentTabValue, tabValue)
+    }
     state = updateLastActive(state, currentTabValue, tabValue)
     return state.set('tabs', tabs.delete(index).insert(index, tabValue))
   },

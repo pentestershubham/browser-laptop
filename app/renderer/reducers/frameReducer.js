@@ -45,7 +45,7 @@ const closeFrame = (state, action) => {
     index
   ))
   state = frameStateUtil.deleteFrameInternalIndex(state, frameProps)
-  state = frameStateUtil.updateFramesInternalIndex(state, index)
+  state = frameStateUtil.updateFramesInternalIndex(state, index, true)
 
   if (state.get('frames', Immutable.List()).size === 0) {
     appActions.closeWindow(getCurrentWindowId())
@@ -224,6 +224,18 @@ const frameReducer = (state, action, immutableAction) => {
       state = setFullScreen(state, action)
       break
 
+    case windowConstants.WINDOW_WEBVIEW_DID_ATTACH: {
+      const tabId = action.tabId
+      const frame = frameStateUtil.getFrameByTabId(state, tabId)
+      if (!frame) {
+        break
+      }
+      const index = state.getIn(['framesInternal', 'index', frame.get('key').toString()])
+      if (index !== undefined) {
+        appActions.tabIndexChanged(frame.get('tabId'), index)
+      }
+      break
+    }
     case windowConstants.WINDOW_ON_FRAME_BOOKMARK:
       {
         // TODO make this an appAction that gets the bookmark data from tabState

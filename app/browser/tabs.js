@@ -8,6 +8,7 @@ const tabActions = require('../common/actions/tabActions')
 const config = require('../../js/constants/config')
 const Immutable = require('immutable')
 const tabState = require('../common/state/tabState')
+const windowState = require('../common/state/windowState')
 const {app, BrowserWindow, extensions, session, ipcMain} = require('electron')
 const {makeImmutable} = require('../common/state/immutableUtil')
 const {getTargetAboutUrl, getSourceAboutUrl, isSourceAboutUrl, newFrameUrl, isTargetAboutUrl, isIntermediateAboutPage, isTargetMagnetUrl, getSourceMagnetUrl} = require('../../js/lib/appUrlUtil')
@@ -24,6 +25,7 @@ const appStore = require('../../js/stores/appStore')
 const appConfig = require('../../js/constants/appConfig')
 const siteTags = require('../../js/constants/siteTags')
 const {newTabMode} = require('../common/constants/settingsEnums')
+const {tabCloseAction} = require('../common/constants/settingsEnums')
 const {cleanupWebContents, currentWebContents, getWebContents, updateWebContents} = require('./webContentsCache')
 const {FilterOptions} = require('ad-block')
 const {isResourceEnabled} = require('../filtering')
@@ -538,11 +540,71 @@ const api = {
     }
   },
 
-  setTabIndex: (tabId, index) => {
+  setTabIndex: (state, tabId, newIndex) => {
+    console.log('setTabIndex:: ', tabId, newIndex)
     let tab = getWebContents(tabId)
-    if (tab && !tab.isDestroyed()) {
-      tab.setTabIndex(index)
+    const tabValue = getTabValue(tabId)
+    if (!tabValue) {
+      return state
     }
+    let oldIndex = tabState.getIndex(state, tabId)
+    const windowId = tabValue.get('windowId')
+
+    // If the tab came from another window or is new, assume we're moving everything
+    // Window 1 [5][13]
+    // Window 2 [9]
+    // ->
+    // // [5][9][13]
+    if (oldIndex === -1) {
+      const windowTabCount = tabState.getTabsByWindowId(state, windowId).size
+      oldIndex = windowTabCount
+    }
+
+    // Case 1, moving a tab from right to left:
+    // Move tabId 13 from index 2 to 1
+    // [5][9][13][17]
+    // ->
+    // [5][13][9][17]
+    if (oldIndex > newIndex) {
+      for (var i = oldIndex; i > newIndex; i--) {
+        // set tab id at index i - 1 to index i
+        const tabValue1 = tabState.getTabByIndex(state, windowId, i - 1)
+        if (tabValue1) {
+          const tab1 = getWebContents(tabValue1.get('tabId'))
+          if (tab1 && !tab1.isDestroyed() && tabValue1) {
+            console.log('1. moving tabId:', tabValue1.get('tabId'), 'from index:', i - 1, 'to index:', i)
+            tab1.setTabIndex(i)
+          }
+        }
+      }
+    }
+
+    //Case 2, moving a tab from left to right:
+    // Move tabId 9 from index 1 to 3
+    // [5][9][13][17]
+    // ->
+    // [5][13][17][9]
+    // Shuffle indices over
+    if (oldIndex < newIndex) {
+      for (var i = oldIndex; i < newIndex; i++) {
+        // set tab id at index i + 1 to index i
+        const tabValue1 = tabState.getTabByIndex(state, windowId, i + 1)
+        if (tabValue1) {
+          const tab1 = getWebContents(tabValue1.get('tabId'))
+          if (tab1 && !tab1.isDestroyed() && tabValue1) {
+            console.log('2. moving tabId:', tabValue1.get('tabId'), 'from index:', i + 1, 'to index:', i)
+            tab1.setTabIndex(i)
+          }
+        }
+      }
+    }
+
+    // Set the original tab
+    if (tab && !tab.isDestroyed() && tabValue) {
+      console.log('3. moving tabId:', tabId, 'from index:', oldIndex, 'to index:', newIndex)
+      tab.setTabIndex(newIndex)
+    }
+    return state
   },
 
   reload: (tabId, ignoreCache = false) => {
@@ -721,7 +783,7 @@ const api = {
     win.loadURL('about:blank')
   },
 
-  moveTo: (state, tabId, frameOpts, browserOpts, windowId) => {
+  moveTo: (state, tabId, frameOpts, browserOpts, toWindowId) => {
     frameOpts = makeImmutable(frameOpts)
     browserOpts = makeImmutable(browserOpts)
     const tab = getWebContents(tabId)
@@ -733,11 +795,11 @@ const api = {
       }
 
       const currentWindowId = tabValue && tabValue.get('windowId')
-      if (windowId != null && currentWindowId === windowId) {
+      if (toWindowId != null && currentWindowId === toWindowId) {
         return
       }
 
-      if (windowId == null || windowId === -1) {
+      if (toWindowId == null || toWindowId === -1) {
         // If there's only one tab and we're dragging outside the window, then disallow
         // a new window to be created.
         const windowTabCount = tabState.getTabsByWindowId(state, currentWindowId).size
@@ -751,11 +813,13 @@ const api = {
         return
       }
 
+      console.log('moveTo:: toWindowId', toWindowId, ', currentWindowId:', currentWindowId, 'tabId:', tabId)
+      api.updateActiveTab(state, tabId)
       tab.detach(() => {
-        if (windowId == null || windowId === -1) {
+        if (toWindowId == null || toWindowId === -1) {
           appActions.newWindow(makeImmutable(frameOpts), browserOpts)
         } else {
-          appActions.newWebContentsAdded(windowId, frameOpts, tabValue)
+          appActions.newWebContentsAdded(toWindowId, frameOpts, tabValue)
         }
       })
     }
@@ -855,6 +919,59 @@ const api = {
     }
 
     return null
+  },
+
+  updateActiveTab : (state, closeTabId) => {
+    if (!tabState.getByTabId(state, closeTabId)) {
+      return
+    }
+
+    const index = tabState.getIndex(state, closeTabId)
+    if (index === -1) {
+      return
+    }
+
+    const windowId = tabState.getWindowId(state, closeTabId)
+    if (windowId === windowState.WINDOW_ID_NONE) {
+      return
+    }
+
+    const lastActiveTabId = tabState.getTabsByLastActivated(state, windowId).last()
+    if (lastActiveTabId !== closeTabId && !tabState.isActive(state, closeTabId)) {
+      return
+    }
+
+    let nextTabId = tabState.TAB_ID_NONE
+    switch (getSetting(settings.TAB_CLOSE_ACTION)) {
+      case tabCloseAction.LAST_ACTIVE:
+        nextTabId = tabState.getLastActiveTabId(state, windowId)
+        break
+      case tabCloseAction.PARENT:
+        {
+          const openerTabId = tabState.getOpenerTabId(state, closeTabId)
+          if (openerTabId !== tabState.TAB_ID_NONE) {
+            nextTabId = openerTabId
+          }
+          break
+        }
+    }
+
+    // DEFAULT: always fall back to NEXT
+    if (nextTabId === tabState.TAB_ID_NONE) {
+      nextTabId = tabState.getNextTabIdByIndex(state, windowId, index)
+      console.log('---getNextTabIdByIndex:', windowId, index, nextTabId)
+      if (nextTabId === tabState.TAB_ID_NONE) {
+        // no unpinned tabs so find the next pinned tab
+        nextTabId = tabState.getNextTabIdByIndex(state, windowId, index, true)
+      }
+    }
+
+    if (nextTabId !== tabState.TAB_ID_NONE) {
+      setImmediate(() => {
+        console.log('calling setActive with nextTabId:', nextTabId)
+        api.setActive(nextTabId)
+      })
+    }
   }
 }
 

@@ -183,7 +183,7 @@ const newFrame = (state, frameOpts) => {
       state, frameOpts,
       nextKey, frameOpts.partitionNumber, openInForeground, insertionIndex))
 
-  state = frameStateUtil.updateFramesInternalIndex(state, insertionIndex)
+  state = frameStateUtil.updateFramesInternalIndex(state, insertionIndex, false)
 
   if (openInForeground) {
     const tabId = frameOpts.tabId
@@ -213,7 +213,9 @@ const frameTabIdChanged = (state, action) => {
   const index = frameStateUtil.getFrameIndex(state, action.getIn(['frameProps', 'key']))
   state = state.mergeIn(['frames', index], newFrameProps)
   state = frameStateUtil.deleteTabInternalIndex(state, oldTabId)
-  return frameStateUtil.updateFramesInternalIndex(state, index)
+  state = frameStateUtil.updateFramesInternalIndex(state, index, false)
+  state = frameStateUtil.moveFrame(state, newTabId, index)
+  return state
 }
 
 const frameGuestInstanceIdChanged = (state, action) => {
@@ -419,7 +421,9 @@ const doAction = (action) => {
         frames = frames.splice(newIndex, 0, sourceFrameProps)
         windowState = windowState.set('frames', frames)
         // Since the tab could have changed pages, update the tab page as well
-        windowState = frameStateUtil.updateFramesInternalIndex(windowState, Math.min(sourceFrameIndex, newIndex))
+        windowState = frameStateUtil.updateFramesInternalIndex(windowState, Math.min(sourceFrameIndex, newIndex), false)
+        console.log('-----window tab move: tabId:', sourceFrameProps.get('tabId'), 'newIndex:', newIndex, 'source key:', action.sourceFrameKey, 'dest key:', action.destinationFrameKey)
+        windowState = frameStateUtil.moveFrame(windowState, sourceFrameProps.get('tabId'), newIndex)
         windowState = frameStateUtil.updateTabPageIndex(windowState, activeFrame.get('tabId'))
         break
       }
