@@ -45,7 +45,7 @@ const closeFrame = (state, action) => {
     index
   ))
   state = frameStateUtil.deleteFrameInternalIndex(state, frameProps)
-  state = frameStateUtil.updateFramesInternalIndex(state, index, true)
+  state = frameStateUtil.updateFramesInternalIndex(state, index)
 
   if (state.get('frames', Immutable.List()).size === 0) {
     appActions.closeWindow(getCurrentWindowId())
@@ -225,15 +225,20 @@ const frameReducer = (state, action, immutableAction) => {
       break
 
     case windowConstants.WINDOW_WEBVIEW_DID_ATTACH: {
+
+      console.log('webview did attach!')
       const tabId = action.tabId
       const frame = frameStateUtil.getFrameByTabId(state, tabId)
       if (!frame) {
+        console.log('webview did attach-bail-early!')
         break
       }
       const index = state.getIn(['framesInternal', 'index', frame.get('key').toString()])
       if (index !== undefined) {
+        console.log('webview did attach-changing to index:', index)
         appActions.tabIndexChanged(frame.get('tabId'), index)
       }
+      console.log('webview did attach done')
       break
     }
     case windowConstants.WINDOW_ON_FRAME_BOOKMARK:

@@ -540,13 +540,14 @@ const api = {
     }
   },
 
-  setTabIndex: (state, tabId, newIndex) => {
-    console.log('setTabIndex:: ', tabId, newIndex)
+  setTabIndex: (state, tabId, requestedNewIndex) => {
+    let newIndex = requestedNewIndex
     let tab = getWebContents(tabId)
     const tabValue = getTabValue(tabId)
     if (!tabValue) {
       return state
     }
+
     let oldIndex = tabState.getIndex(state, tabId)
     const windowId = tabValue.get('windowId')
 
@@ -558,6 +559,10 @@ const api = {
     if (oldIndex === -1) {
       const windowTabCount = tabState.getTabsByWindowId(state, windowId).size
       oldIndex = windowTabCount
+    }
+    if (newIndex === -1) {
+      const windowTabCount = tabState.getTabsByWindowId(state, windowId).size
+      newIndex = windowTabCount
     }
 
     // Case 1, moving a tab from right to left:
@@ -599,9 +604,8 @@ const api = {
       }
     }
 
-    // Set the original tab
-    if (tab && !tab.isDestroyed() && tabValue) {
-      console.log('3. moving tabId:', tabId, 'from index:', oldIndex, 'to index:', newIndex)
+    if (tab && !tab.isDestroyed() && tabValue && requestedNewIndex !== -1) {
+      console.log('3. moving tabId:', tabId, 'to index:', requestedNewIndex)
       tab.setTabIndex(newIndex)
     }
     return state
@@ -814,6 +818,7 @@ const api = {
       }
 
       console.log('moveTo:: toWindowId', toWindowId, ', currentWindowId:', currentWindowId, 'tabId:', tabId)
+      api.setTabIndex(state, tabId, -1)
       api.updateActiveTab(state, tabId)
       tab.detach(() => {
         if (toWindowId == null || toWindowId === -1) {
@@ -921,7 +926,7 @@ const api = {
     return null
   },
 
-  updateActiveTab : (state, closeTabId) => {
+  updateActiveTab: (state, closeTabId) => {
     if (!tabState.getByTabId(state, closeTabId)) {
       return
     }

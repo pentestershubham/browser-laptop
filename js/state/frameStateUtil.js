@@ -524,7 +524,7 @@ const deleteFrameInternalIndex = (state, frame) => {
   return deleteTabInternalIndex(state, frame.get('tabId'))
 }
 
-const updateFramesInternalIndex = (state, fromIndex, notifyBrowserProcess = true) => {
+const updateFramesInternalIndex = (state, fromIndex) => {
   let framesInternal = state.get('framesInternal') || Immutable.Map()
   state.get('frames').slice(fromIndex).reduceRight((result, frame, idx) => {
     const tabId = frame.get('tabId')
@@ -536,12 +536,8 @@ const updateFramesInternalIndex = (state, fromIndex, notifyBrowserProcess = true
     if (tabId !== -1) {
       framesInternal = framesInternal.setIn(['tabIndex', tabId.toString()], realIndex)
     }
-    // The browser process might not have the correct window Id for the tab yet. This happens
-    // when a new frame is being created via tear off, so in that case the tabIndexChanged
-    // app action is called when the new frame is attached.
-    if (notifyBrowserProcess) {
-      appActions.tabIndexChanged(tabId, realIndex)
-    }
+    // Don't call appActions.tabIndexChanged because the browser process might not have
+    // the correct windowId for the tab yet.
   }, 0)
   return state.set('framesInternal', framesInternal)
 }

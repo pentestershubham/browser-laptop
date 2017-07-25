@@ -183,7 +183,7 @@ const newFrame = (state, frameOpts) => {
       state, frameOpts,
       nextKey, frameOpts.partitionNumber, openInForeground, insertionIndex))
 
-  state = frameStateUtil.updateFramesInternalIndex(state, insertionIndex, false)
+  state = frameStateUtil.updateFramesInternalIndex(state, insertionIndex)
 
   if (openInForeground) {
     const tabId = frameOpts.tabId
@@ -201,6 +201,7 @@ const newFrame = (state, frameOpts) => {
 }
 
 const frameTabIdChanged = (state, action) => {
+  console.log('frameTabIdChanged!----1')
   action = makeImmutable(action)
   const oldTabId = action.get('oldTabId')
   const newTabId = action.get('newTabId')
@@ -213,8 +214,10 @@ const frameTabIdChanged = (state, action) => {
   const index = frameStateUtil.getFrameIndex(state, action.getIn(['frameProps', 'key']))
   state = state.mergeIn(['frames', index], newFrameProps)
   state = frameStateUtil.deleteTabInternalIndex(state, oldTabId)
-  state = frameStateUtil.updateFramesInternalIndex(state, index, false)
+  state = frameStateUtil.updateFramesInternalIndex(state, index)
   state = frameStateUtil.moveFrame(state, newTabId, index)
+  console.log('frameTabIdChanged!----2')
+
   return state
 }
 
@@ -421,7 +424,7 @@ const doAction = (action) => {
         frames = frames.splice(newIndex, 0, sourceFrameProps)
         windowState = windowState.set('frames', frames)
         // Since the tab could have changed pages, update the tab page as well
-        windowState = frameStateUtil.updateFramesInternalIndex(windowState, Math.min(sourceFrameIndex, newIndex), false)
+        windowState = frameStateUtil.updateFramesInternalIndex(windowState, Math.min(sourceFrameIndex, newIndex))
         console.log('-----window tab move: tabId:', sourceFrameProps.get('tabId'), 'newIndex:', newIndex, 'source key:', action.sourceFrameKey, 'dest key:', action.destinationFrameKey)
         windowState = frameStateUtil.moveFrame(windowState, sourceFrameProps.get('tabId'), newIndex)
         windowState = frameStateUtil.updateTabPageIndex(windowState, activeFrame.get('tabId'))
