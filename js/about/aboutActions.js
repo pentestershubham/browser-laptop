@@ -127,6 +127,14 @@ const aboutActions = {
     })
   },
 
+  loadURLRequested: function (url) {
+    aboutActions.dispatchAction({
+      actionType: appConstants.APP_LOAD_URL_REQUESTED,
+      url
+    })
+  },
+
+
   /**
    * Generates a file with the users backup keys
    */

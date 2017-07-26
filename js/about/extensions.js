@@ -24,9 +24,20 @@ class ExtensionItem extends ImmutableComponent {
   constructor () {
     super()
     this.onContextMenu = this.onContextMenu.bind(this)
+    this.onInspect = this.onInspect.bind(this)
   }
   onContextMenu (e) {
     aboutActions.contextMenu(this.props.extension.toJS(), 'extensions', e)
+  }
+  onInspect (e) {
+    //chrome.tabs.query(
+      //{currentWindow: true, active : true},
+      //function(tabArray){
+        //console.log("sending ipc")
+        //chrome.ipcRenderer.send('load-url-requested', tabArray[0].id, 'chrome-extension://'+this.props.extension.get('id')+'/_generated_background_page.html')
+      //}
+    //)
+    aboutActions.loadURLRequested('chrome-extension://'+this.props.extension.get('id')+'/_generated_background_page.html')
   }
   get icon () {
     return this.props.extension.getIn(['manifest', 'icons', '128']) ||
@@ -70,6 +81,7 @@ class ExtensionItem extends ImmutableComponent {
           ? <div className='extensionPermissions'><span data-l10n-id='extensionPermissionsLabel' /> <span>{permissions.join(', ')}</span></div>
           : null
         }
+        <div className='extensionInspectViews'><span data-l10n-id='extensionInspectViewsLabel' /> <span onClick={this.onInspect}>_generated_background_page</span></div>
       </div>
     </div>
   }
