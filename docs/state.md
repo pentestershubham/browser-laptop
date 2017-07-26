@@ -69,6 +69,12 @@ AppStore
   cookieblockAll: {
     enabled: boolean // enable all cookie/referer blocking
   },
+  fingerprintingProtection: {
+    enabled: boolean // enable 3p fingerprinting blocking. default true.
+  },
+  fingerprintingProtectionAll: {
+    enabled: boolean // enable all fingerprinting blocking. default false.
+  },
   defaultBrowserCheckComplete: boolean, // true to indicate default browser check is complete
   defaultWindowHeight: number, // DEPRECATED (0.12.7); replaced w/ defaultWindowParams.height
   defaultWindowParams: {
@@ -198,7 +204,6 @@ AppStore
     'payments.notificationTryPaymentsDismissed': boolean, // true if you dismiss the message or enable Payments
     'privacy.autocomplete.history-size': number, // number of autocomplete entries to keep
     'privacy.autofill-enabled': boolean, // true to enable autofill
-    'privacy.block-canvas-fingerprinting': boolean, // canvas fingerprinting defense
     'privacy.bookmark-suggestions': boolean, // auto suggest for bookmarks enabled
     'privacy.do-not-track': boolean, // whether DNT is 1
     'privacy.history-suggestions': boolean, // auto suggest for history enabled
@@ -255,7 +260,7 @@ AppStore
     [hostPattern]: {
       adControl: string, // (showBraveAds | blockAds | allowAdsAndTracking)
       cookieControl: string, // (block3rdPartyCookie | allowAllCookies | blockAllCookies)
-      fingerprintingProtection: boolean,
+      fingerprintingProtection: string, // (block3rdPartyFingerprinting | allowAllFingerprinting | blockAllFingerprinting)
       flash: (number|boolean), // approval expiration time if allowed, false if never allow
       fullscreenPermission: boolean,
       geolocationPermission: boolean,

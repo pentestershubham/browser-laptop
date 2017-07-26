@@ -39,7 +39,7 @@ module.exports.siteSettingDefaults = {
   safeBrowsing: true,
   noScript: false,
   httpsEverywhere: true,
-  fingerprintingProtection: false,
+  fingerprintingProtection: false, // boolean for backwards compatibility
   ledgerPayments: true,
   ledgerPaymentsShown: true,
   ledgerPinPercentage: 0
@@ -147,6 +147,9 @@ const applySiteSettingRecord = (record) => {
       return adControlEnum[value]
     } else if (key === 'cookieControl') {
       return cookieControlEnum[value]
+    } else if (key === 'fingerprintingProtection' && typeof value === 'boolean') {
+      // TODO: Migrate from bool to enum on all platforms
+      return value ? 'blockAllFingerprinting' : 'block3rdPartyFingerprinting'
     } else {
       return value
     }
@@ -544,6 +547,9 @@ module.exports.createSiteSettingsData = (hostPattern, setting) => {
       objectData[key] = adControlEnum[value]
     } else if (key === 'cookieControl' && typeof cookieControlEnum[value] !== 'undefined') {
       objectData[key] = cookieControlEnum[value]
+    } else if (key === 'fingerprintingProtection') {
+      // TODO: migrate from bool to enum on all platforms
+      objectData[key] = value === 'blockAllFingerprinting'
     } else if (key in module.exports.siteSettingDefaults) {
       objectData[key] = value
     }
