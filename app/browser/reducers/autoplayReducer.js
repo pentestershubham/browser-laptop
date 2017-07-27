@@ -36,8 +36,8 @@ const showAutoplayMessageBox = (tabId) => {
 
   appActions.showNotification({
     buttons: [
-      {text: locale.translation('yes')},
-      {text: locale.translation('no')}
+      {text: locale.translation('allow')},
+      {text: locale.translation('deny')}
     ],
     message,
     frameOrigin: origin,
