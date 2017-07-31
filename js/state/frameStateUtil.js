@@ -536,8 +536,6 @@ const updateFramesInternalIndex = (state, fromIndex) => {
     if (tabId !== -1) {
       framesInternal = framesInternal.setIn(['tabIndex', tabId.toString()], realIndex)
     }
-    // Don't call appActions.tabIndexChanged because the browser process might not have
-    // the correct windowId for the tab yet.
   }, 0)
   return state.set('framesInternal', framesInternal)
 }
@@ -552,9 +550,6 @@ const moveFrame = (state, tabId, index) => {
   if (tabId !== -1) {
     framesInternal = framesInternal.setIn(['tabIndex', tabId.toString()], index)
   }
-  // The browser process might not have the correct window Id for the tab yet. This happens
-  // when a new frame is being created via tear off, so in that case the tabIndexChanged
-  // app action is called when the new frame is attached.
   appActions.tabIndexChanged(tabId, index)
   return state.set('framesInternal', framesInternal)
 }

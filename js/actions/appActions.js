@@ -94,6 +94,13 @@ const appActions = {
     })
   },
 
+  tabDidAttach: function (tabId) {
+    dispatch({
+      actionType: appConstants.APP_TAB_DID_ATTACH,
+      tabId
+    })
+  },
+
   /**
    * A tab has been moved to another window
    * @param {Number} tabId

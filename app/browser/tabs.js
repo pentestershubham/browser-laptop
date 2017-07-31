@@ -436,8 +436,7 @@ const api = {
       if (tab.isBackgroundPage() || !tab.isGuest()) {
         return
       }
-      let tabId = tab.getId()
-
+      const tabId = tab.getId()
       tab.on('did-start-navigation', (e, navigationHandle) => {
         if (!tab.isDestroyed() && navigationHandle.isValid() && navigationHandle.isInMainFrame()) {
           const controller = tab.controller()
@@ -490,6 +489,12 @@ const api = {
           windowActions.gotResponseDetails(tabId, {status, newURL, originalURL, httpResponseCode, requestMethod, referrer, headers, resourceType})
         }
       })
+      tab.on('did-attach', () => {
+        updateTab(tabId)
+        const tabValue = getTabValue(tabId)
+        console.log('tabvValue:', tabValue)
+        appActions.tabDidAttach(tabId)
+      })
     })
 
     process.on('on-tab-created', (tab, options) => {
@@ -540,16 +545,17 @@ const api = {
     }
   },
 
-  setTabIndex: (state, tabId, requestedNewIndex) => {
-    let newIndex = requestedNewIndex
-    let tab = getWebContents(tabId)
-    const tabValue = getTabValue(tabId)
-    if (!tabValue) {
-      return state
+  setTabIndex: (state, requestedWindowId, tabId, newIndex) => {
+    let windowId = requestedWindowId
+    if (windowId === -1) {
+      const tabValue = getTabValue(tabId)
+      windowId = tabValue && tabValue.get('windowId') || -1
+      if (windowId === -1) {
+        return state
+      }
     }
 
     let oldIndex = tabState.getIndex(state, tabId)
-    const windowId = tabValue.get('windowId')
 
     // If the tab came from another window or is new, assume we're moving everything
     // Window 1 [5][13]
@@ -558,11 +564,25 @@ const api = {
     // // [5][9][13]
     if (oldIndex === -1) {
       const windowTabCount = tabState.getTabsByWindowId(state, windowId).size
-      oldIndex = windowTabCount
+      // If the requested window id isn't known yet, this tab actually belongs
+      // to this window so we need to count it by not subtracting 1.
+      oldIndex = windowTabCount - 1
+      // If we don't know about our own tab data yet, then add one
+      const tabData = tabState.getByTabId(state, tabId)
+      if (!tabData || tabData.get('windowId') === -1) {
+        oldIndex++
+      }
+
+      console.log('oldIndex was -1 and now is:', oldIndex ,'requested window id:', requestedWindowId)
     }
     if (newIndex === -1) {
       const windowTabCount = tabState.getTabsByWindowId(state, windowId).size
-      newIndex = windowTabCount
+      newIndex = windowTabCount - 1
+      const tabData = tabState.getByTabId(state, tabId)
+      if (!tabData || tabData.get('windowId') === -1) {
+        newIndex++
+      }
+      console.log('newIndex was -1 and now is:', newIndex, 'requested window id:', requestedWindowId)
     }
 
     // Case 1, moving a tab from right to left:
@@ -573,11 +593,10 @@ const api = {
     if (oldIndex > newIndex) {
       for (var i = oldIndex; i > newIndex; i--) {
         // set tab id at index i - 1 to index i
-        const tabValue1 = tabState.getTabByIndex(state, windowId, i - 1)
-        if (tabValue1) {
-          const tab1 = getWebContents(tabValue1.get('tabId'))
-          if (tab1 && !tab1.isDestroyed() && tabValue1) {
-            console.log('1. moving tabId:', tabValue1.get('tabId'), 'from index:', i - 1, 'to index:', i)
+        const tabData1 = tabState.getTabByIndex(state, windowId, i - 1)
+        if (tabData1) {
+          const tab1 = getWebContents(tabData1.get('tabId'))
+          if (tab1 && !tab1.isDestroyed() && tabData1) {
             tab1.setTabIndex(i)
           }
         }
@@ -593,19 +612,19 @@ const api = {
     if (oldIndex < newIndex) {
       for (var i = oldIndex; i < newIndex; i++) {
         // set tab id at index i + 1 to index i
-        const tabValue1 = tabState.getTabByIndex(state, windowId, i + 1)
-        if (tabValue1) {
-          const tab1 = getWebContents(tabValue1.get('tabId'))
-          if (tab1 && !tab1.isDestroyed() && tabValue1) {
-            console.log('2. moving tabId:', tabValue1.get('tabId'), 'from index:', i + 1, 'to index:', i)
+        const tabData1 = tabState.getTabByIndex(state, windowId, i + 1)
+        if (tabData1) {
+          const tab1 = getWebContents(tabData1.get('tabId'))
+          if (tab1 && !tab1.isDestroyed() && tabData1) {
             tab1.setTabIndex(i)
           }
         }
       }
     }
 
-    if (tab && !tab.isDestroyed() && tabValue && requestedNewIndex !== -1) {
-      console.log('3. moving tabId:', tabId, 'to index:', requestedNewIndex)
+    const tab = getWebContents(tabId)
+    if (tab && !tab.isDestroyed()) {
+      console.log('=====settabindex:', tabId, newIndex)
       tab.setTabIndex(newIndex)
     }
     return state
@@ -675,12 +694,18 @@ const api = {
     const tabId = action.get('tabId')
     let options = action.get('options') || Immutable.Map()
     const tabValue = getTabValue(tabId)
+    let index = -1
+    const windowId = tabValue.get('windowId')
     if (tabValue && tabValue.get('index') !== undefined) {
-      options = options.set('index', tabValue.get('index') + 1)
+      index = tabValue.get('index') + 1
+      options = options.set('index', index)
     }
     const tab = getWebContents(tabId)
     if (tab && !tab.isDestroyed()) {
       tab.clone(options.toJS(), (newTab) => {
+        if (index !== -1) {
+          newTab.setTabIndex(state, windowId, newTab.getId(), index)
+        }
       })
     }
   },
@@ -817,8 +842,7 @@ const api = {
         return
       }
 
-      console.log('moveTo:: toWindowId', toWindowId, ', currentWindowId:', currentWindowId, 'tabId:', tabId)
-      api.setTabIndex(state, tabId, -1)
+      api.setTabIndex(state, currentWindowId, tabId, -1)
       api.updateActiveTab(state, tabId)
       tab.detach(() => {
         if (toWindowId == null || toWindowId === -1) {
@@ -964,7 +988,6 @@ const api = {
     // DEFAULT: always fall back to NEXT
     if (nextTabId === tabState.TAB_ID_NONE) {
       nextTabId = tabState.getNextTabIdByIndex(state, windowId, index)
-      console.log('---getNextTabIdByIndex:', windowId, index, nextTabId)
       if (nextTabId === tabState.TAB_ID_NONE) {
         // no unpinned tabs so find the next pinned tab
         nextTabId = tabState.getNextTabIdByIndex(state, windowId, index, true)
@@ -973,10 +996,28 @@ const api = {
 
     if (nextTabId !== tabState.TAB_ID_NONE) {
       setImmediate(() => {
-        console.log('calling setActive with nextTabId:', nextTabId)
         api.setActive(nextTabId)
       })
     }
+  },
+  debugTabs: (state) => {
+    console.log(tabState.getTabs(state)
+      .toJS()
+      .map((tab) => {
+        return {
+          tabId: tab.tabId,
+          index: tab.index,
+          windowId: tab.windowId,
+          active: tab.active
+        }
+      })
+      .sort((tab1, tab2) => {
+        if (tab1.windowId !== tab2.windowId)
+          return tab1.windowId - tab2.windowId
+        if (tab1.index !== tab2.index)
+          return tab1.index - tab2.index
+        return 0
+      }))
   }
 }
 

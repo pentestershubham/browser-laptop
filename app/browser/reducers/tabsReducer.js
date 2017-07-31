@@ -69,14 +69,54 @@ const tabsReducer = (state, action, immutableAction) => {
       state = tabs.init(state, action)
       break
     case appConstants.APP_TAB_CREATED:
+      // If there's an explicit index set, then start it at
+      // -1 and then set the index of this and the other
+      // tabs right after.  This is because chromium doesn't
+      // know about our index at this time so we need us to
+      // handle it.
+      const index = action.getIn(['tabValue', 'index'])
+      if (index !== -1) {
+        action = action.setIn(['tabValue', 'index'], -1)
+      }
       state = tabState.maybeCreateTab(state, action)
+
+      const tabId = action.getIn(['tabValue', 'tabId'])
+      const windowId = action.getIn(['tabValue', 'windowId'])
+      tabs.setTabIndex(state, windowId, tabId, index)
+      console.log('===APP_TAB_CREATED===', tabId, index)
+
+      /*
+      const tabData = tabState.getByTabId(state, tabId)
+      if (tabData) {
+        const index = tabData.get('index')
+        if (index !== undefined) {
+          api.setTabIndex(state, tabId, index)
+        }
+      }
+      */
       break
+    case appConstants.APP_TAB_DID_ATTACH: {
+      const tabId = action.get('tabId')
+      console.log('!!!tab-did-attach1: ', tabId)
+      const tabData = tabState.getByTabId(state, tabId)
+      if (tabData) {
+        const index = tabData.get('index')
+        // Window Id isn't available in tab state yet, so pass
+        // -1 and it will be retrieved inside tabs.js by using getTabValue.
+        const windowId = -1
+        console.log('!!!tab-did-attach3: ', -1, tabId, index)
+        tabs.setTabIndex(state, windowId, tabId, index)
+      }
+      break
+    }
     case appConstants.APP_TAB_MOVED: {
       setImmediate(() => {
         const tabId = action.get('tabId')
         const frameOpts = frameOptsFromFrame(action.get('frameOpts'))
         const browserOpts = action.get('browserOpts') || new Immutable.Map()
         const windowId = action.get('windowId') || -1
+        //const index = action.get('index')
+        // tabs.setTabIndex(state, windowId, tabId, index)
         tabs.moveTo(state, tabId, frameOpts, browserOpts, windowId)
       })
       break
@@ -103,6 +143,8 @@ const tabsReducer = (state, action, immutableAction) => {
       break
     case appConstants.APP_TAB_UPDATED:
       state = tabState.maybeCreateTab(state, action)
+      console.log('tab updated, state:')
+      tabs.debugTabs(state)
       break
     case appConstants.APP_TAB_CLOSE_REQUESTED:
       {
@@ -152,6 +194,13 @@ const tabsReducer = (state, action, immutableAction) => {
           break
         }
         tabs.updateActiveTab(state, tabId)
+
+        // Intentionally don't use tabValue because web contents doesn't exist
+        // at this point so that data won't be retrieved correctly.
+        const tabData = tabState.getByTabId(state, tabId)
+        const windowId = tabData && tabData.get('windowId') || -1
+
+        tabs.setTabIndex(state, windowId, tabId, -1)
         state = tabState.removeTabByTabId(state, tabId)
       }
       break
@@ -191,9 +240,12 @@ const tabsReducer = (state, action, immutableAction) => {
         tabs.setActive(action.get('tabId'))
       })
       break
-    case appConstants.APP_TAB_INDEX_CHANGED:
-      tabs.setTabIndex(state, action.get('tabId'), action.get('index'))
+    case appConstants.APP_TAB_INDEX_CHANGED: {
+      const tabId = action.get('tabId')
+      const index = action.get('index')
+      tabs.setTabIndex(state, -1, tabId, index)
       break
+    }
     case appConstants.APP_TAB_TOGGLE_DEV_TOOLS:
       setImmediate(() => {
         tabs.toggleDevTools(action.get('tabId'))

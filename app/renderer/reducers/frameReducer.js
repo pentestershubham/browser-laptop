@@ -226,6 +226,7 @@ const frameReducer = (state, action, immutableAction) => {
 
     case windowConstants.WINDOW_WEBVIEW_DID_ATTACH: {
 
+      /*
       console.log('webview did attach!')
       const tabId = action.tabId
       const frame = frameStateUtil.getFrameByTabId(state, tabId)
@@ -239,6 +240,8 @@ const frameReducer = (state, action, immutableAction) => {
         appActions.tabIndexChanged(frame.get('tabId'), index)
       }
       console.log('webview did attach done')
+      */
+
       break
     }
     case windowConstants.WINDOW_ON_FRAME_BOOKMARK:
